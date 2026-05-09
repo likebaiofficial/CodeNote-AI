@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-04-25 01:10
-current_phase: 代码回顾后准备进入 messages 历史累积
+last_updated: 2026-05-10 00:20
+current_phase: 前端逐字渲染已接通（待加中断控制）
 ---
 
 ## 1. 终极目标 (Project Goal)
@@ -95,17 +95,46 @@ current_phase: 代码回顾后准备进入 messages 历史累积
 - [x] [2026-04-25] 已回顾当前代码结构：`main.ts` 挂载应用，`App.vue` 挂载 `ChatView`，`ChatView.vue` 管理输入/结果/loading，`request.ts` 模拟异步解释，`chat.ts` 定义消息与请求类型
 - [x] [2026-04-25] 用户已尝试在 `ChatView.vue` 新增 `messages` 状态；当前类型检查报错为 `Message` 需使用 `import type`，且 `messages` 尚未被读取
 - [x] [2026-04-25] 用户已修正 `ChatView.vue` 的类型导入与状态类型：`import type { Message }`、`const messages = ref<Message[]>([])`；当前仅剩 `messages` 未使用报错
+- [x] [2026-05-05] 用户暂停数日后回到项目；当前任务改为先完整复习项目目标、信息流、文件职责与重点代码，再继续 `messages` 历史累积
+- [x] [2026-05-05] 用户已在 `handleSend` 中将 `userMessage` 通过 `messages.value.push(userMessage)` 追加到历史数组；`npm run type-check` 通过
+- [x] [2026-05-05] 用户已将 `explainCode` 调用参数从临时数组改为 `messages.value`，实现“输入 -> 入列 -> 用历史请求”的主链连接；`npm run type-check` 通过
+- [x] [2026-05-05] 用户已将 assistant 回复写回 `messages`（`role: "assistant"`），最小多轮消息写回链路打通；`npm run type-check` 通过
+- [x] [2026-05-05] 用户已将 `ChatView.vue` 页面展示从单一结果切换为 `messages` 列表渲染（`v-for` 显示 `role + content`）；`npm run type-check` 通过
+- [x] [2026-05-05] 用户已将发送成功与错误分支统一写入 `messages`，并在发送后清空输入框；当前仅剩旧变量 `result` 未使用导致 type-check 报错
+- [x] [2026-05-05] 用户已删除 `result` 旧状态变量，`ChatView.vue` 当前 `npm run type-check` 通过，最小多轮页面闭环稳定
+- [x] [2026-05-08] 已补齐 `ChatView.vue` 空输入前置校验：`trim` 后为空直接 `return`，避免空消息入列与无效请求
+- [x] [2026-05-08] 新增后端目录与入口：`server/index.ts`，基于 `node:http` 搭建最小 HTTP 服务
+- [x] [2026-05-08] 后端已支持 `GET /health`、`OPTIONS` 预检、`POST /api/chat` mock 回复与 `Invalid JSON -> 400` 处理
+- [x] [2026-05-08] 前端 `src/request.ts` 已从本地 mock 切换为真实请求 `http://localhost:3001/api/chat`，并统一处理 `response.ok` 错误分支
+- [x] [2026-05-08] 已在 `server/index.ts` 为 `/api/chat` 增加业务字段校验：`messages` 必须为数组，`mode` 必须是 `explain|note`，非法返回 `400`
+- [x] [2026-05-08] 已将 `/api/chat` 从 mock 回复升级为真实模型调用（非流式）：后端使用 `OPENAI_API_KEY` 调用 `chat/completions`，并按 `mode` 注入不同 system prompt
+- [x] [2026-05-09] 前端 `ChatView.vue` 已新增 `mode` 状态与模式切换按钮，`explainCode` 请求不再写死 explain，而是传 `mode.value`
+- [x] [2026-05-09] 前端模式按钮已新增 active 状态绑定（`mode-selector` + `:class="{ active: ... }"`），可显示当前模式
+- [x] [2026-05-09] 已清理 `style.css` 中重复的 `.mode-selector` 样式块，保留单份定义；`npm run type-check` 通过
+- [x] [2026-05-09] 已修复 `server/index.ts` 中模型调用分支的控制流：恢复成功分支 `200 content` 返回、修复 `404` 位置、补齐 `POST /api/chat` 分支 `return` 与括号闭合
+- [x] [2026-05-09] 已接入后端模型调用超时保护（`AbortController + 20s timeout`），超时返回 `504`
+- [x] [2026-05-09] 已在后端模型调用增加最小重试策略（最多重试 1 次）：上游 5xx 或网络异常时重试一次，再失败返回错误
+- [x] [2026-05-09] 前端已在发送期间禁用模式切换按钮，并在发送函数内锁定 `currentMode`，避免一次请求中途切模式导致认知混乱
+- [x] [2026-05-09] 前端 `request.ts` 已增加请求超时保护（`AbortController + 25s`）并新增超时友好错误文案
+- [x] [2026-05-09] 前端已为错误消息增加状态字段与视觉区分（`status: "error"` + `error-message` 样式），错误与正常回复可直接区分
+- [x] [2026-05-10] 后端 `/api/chat` 已切换为流式上游调用（`stream: true`），并使用 `text/event-stream` 响应头逐块透传上游数据到前端；保留超时与重试框架
+- [x] [2026-05-10] 前端 `request.ts` 已实现流式读取与 SSE 解析：`streamExplainCode(payload, onChunk)` 可逐块消费 `delta.content` 并返回完整文本
+- [x] [2026-05-10] 前端 `ChatView.vue` 已接入流式消费：发送时先插入空 assistant 消息，`onChunk` 逐块追加内容，实现打字机式渲染；错误时可回填为 error 消息
 
 ## 3. 当前上下文与关键决策 (Context & Decisions)
 - **核心技术栈**：Vue 3、TypeScript、Vite、Pinia、Markdown 渲染、Fetch Stream、后端代理服务
 - **架构约定**：先做单页最小闭环，再拆组件；状态集中到 Pinia；AI 对话上下文统一维护为 `messages` 数组；流式输出优先使用 `fetch + ReadableStream`；前后端职责分离，AI 请求由后端代理转发；功能优先级固定为“主链 > 稳定性 > 亮点展示”；当前教学采用“严格导师模式：每步先讲目标与原因，再一步一验收，不给完整代码”
-- **遗留问题/Bug**：`ChatView.vue` 当前 `npm run type-check` 未通过：`messages` 已声明但尚未在逻辑中使用；当前仅发送单条 `user` 消息，尚未做 `messages` 历史累积；类型文件目前集中在 `src/chat.ts`，后续可整理到 `src/types/chat.ts`；尚未实现后端代理层（API Key 仍无安全托管位置）；尚未实现流式输出与取消机制；尚未接入 Markdown 渲染与结构化笔记模式联动；尚未实现长对话虚拟列表/上下文裁剪策略
+- **遗留问题/Bug**：尚未实现中断生成（前端 Abort + 后端感知断开）；尚未接入 Markdown 渲染与结构化笔记模式联动；尚未实现长对话虚拟列表/上下文裁剪策略
 
 ## 4. 下一步行动计划 (Next Steps)
-- [ ] Phase A（主链）: 在 `ChatView.vue` 中新增 `messages` 状态并在发送前追加 `user` 消息
-- [ ] Phase A（主链）: 将 assistant 回复写入 `messages`，完成最小多轮对话链路
-- [ ] Phase A（主链）: 搭建后端代理接口（统一错误码与超时策略），前端改为调用代理
-- [ ] Phase A（主链）: 升级为流式输出（`fetch + ReadableStream + AbortController`）并支持中断生成
+- [x] Phase A（主链）: 在 `ChatView.vue` 中新增 `messages` 状态并在发送前追加 `user` 消息
+- [x] Phase A（主链）: 将 assistant 回复写入 `messages`，完成最小多轮对话链路
+- [x] Phase A（主链）: 搭建后端代理最小接口并切换前端调用（`/health` + `/api/chat` mock）
+- [x] Phase A（主链）: 补齐后端请求体验证与错误码约束（`messages/mode`）
+- [x] Phase A（主链）: 接入真实模型调用（先非流式）
+- [x] Phase A（主链）: 前端接入 explain/note 模式切换并传递到后端
+- [x] Phase A（主链）: ChatView 接入 onChunk，改为 assistant 消息逐步渲染
+- [ ] Phase A（主链）: 加入中断生成控制（AbortController）
 - [ ] Phase A（主链）: 接入 Markdown 渲染与“解释/笔记”双模式输出
 - [ ] Phase B（亮点）: 代码高亮 + 一键复制 + 长对话性能策略（虚拟列表/上下文裁剪）
 - [ ] Phase B（亮点）: 构建体积分析、线上部署与演示入口（链接/二维码）
