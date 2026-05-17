@@ -68,12 +68,28 @@ function parseSseEvent(eventText: string): string {
 export async function streamExplainCode(
   payload: ChatRequestPayload,
   onChunk: OnChunk = () => {},
+  externalSignal?: AbortSignal,
 ): Promise<string> {
   const controller = new AbortController();
 
+  let isTimeout = false;
+
   const timeoutId = setTimeout(() => {
+    isTimeout = true;
     controller.abort();
   }, REQUEST_TIMEOUT_MS);
+
+  const handleExternalAbort = () => {
+    controller.abort();
+  };
+
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else {
+    externalSignal?.addEventListener("abort", handleExternalAbort, {
+      once: true,
+    });
+  }
 
   try {
     const response = await fetch(API_URL, {
@@ -140,7 +156,15 @@ export async function streamExplainCode(
     }
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("请求超时了，模型响应太久，请稍后重试");
+      if (externalSignal?.aborted) {
+        throw new Error("已停止生成");
+      }
+
+      if (isTimeout) {
+        throw new Error("请求超时了，模型响应太久，请稍后重试");
+      }
+
+      throw new Error("请求已中断");
     }
 
     if (error instanceof Error) {
@@ -150,6 +174,7 @@ export async function streamExplainCode(
     throw new Error("请求失败，请稍后重试");
   } finally {
     clearTimeout(timeoutId);
+    externalSignal?.removeEventListener("abort", handleExternalAbort);
   }
 }
 

@@ -53,6 +53,11 @@ const server = http.createServer((req, res) => {
 
   if (req.method === "POST" && url.pathname === "/api/chat") {
     let body = "";
+    let clientClosed = false;
+
+    req.on("close", () => {
+      clientClosed = true;
+    });
 
     req.on("data", (chunk) => {
       body += chunk;
@@ -119,6 +124,17 @@ const server = http.createServer((req, res) => {
           const timeoutId = setTimeout(() => {
             controller.abort();
           }, UPSTREAM_TIMEOUT_MS);
+
+          if (clientClosed) {
+            clearTimeout(timeoutId);
+            return;
+          }
+
+          const handleClose = () => {
+            clientClosed = true;
+            controller.abort();
+          };
+          res.once("close", handleClose);
 
           try {
             const upstreamResponse = await fetch(MODEL_API_URL, {
@@ -187,6 +203,10 @@ const server = http.createServer((req, res) => {
             const isAbort =
               error instanceof Error && error.name === "AbortError";
 
+            if (clientClosed) {
+              return;
+            }
+
             if (!isAbort && attempt < MAX_RETRIES) {
               continue;
             }
@@ -204,6 +224,8 @@ const server = http.createServer((req, res) => {
             console.error(error);
             sendJson(res, 500, { error: "模型调用失败" });
             return;
+          } finally {
+            res.off("close", handleClose);
           }
         }
       })();

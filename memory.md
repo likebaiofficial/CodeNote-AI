@@ -1,6 +1,6 @@
 ---
-last_updated: 2026-05-10 00:20
-current_phase: 前端逐字渲染已接通（待加中断控制）
+last_updated: 2026-05-18 04:28
+current_phase: 展示层微调（产品定位文案统一）
 ---
 
 ## 1. 终极目标 (Project Goal)
@@ -120,11 +120,23 @@ current_phase: 前端逐字渲染已接通（待加中断控制）
 - [x] [2026-05-10] 后端 `/api/chat` 已切换为流式上游调用（`stream: true`），并使用 `text/event-stream` 响应头逐块透传上游数据到前端；保留超时与重试框架
 - [x] [2026-05-10] 前端 `request.ts` 已实现流式读取与 SSE 解析：`streamExplainCode(payload, onChunk)` 可逐块消费 `delta.content` 并返回完整文本
 - [x] [2026-05-10] 前端 `ChatView.vue` 已接入流式消费：发送时先插入空 assistant 消息，`onChunk` 逐块追加内容，实现打字机式渲染；错误时可回填为 error 消息
+- [x] [2026-05-10] 前端已接入中断生成控制：`ChatView` 新增停止按钮与 `AbortController`，`request.ts` 支持外部 `AbortSignal`，中断后恢复状态并保留已生成内容
+- [x] [2026-05-10] 已确认 `server/index.ts` 当前语法与类型检查通过（`node --check`、`npm run type-check` 均为 0），IDE 红线属于 TS Server 缓存/诊断残留，不是代码真实错误
+- [x] [2026-05-18] 已接入 Markdown 渲染：`ChatView.vue` 中 assistant 消息使用 `markdown-it` 渲染（`v-html + md.render`），用户消息与错误消息保持纯文本展示
+- [x] [2026-05-18] 已补充 Markdown 最小样式：标题、列表、行内代码、代码块基础可读性样式；`npm run type-check` 通过
+- [x] [2026-05-18] 已接入 `prismjs` 代码块高亮：`markdown-it` 的 `highlight` 钩子调用 Prism 渲染，已引入 TS/JS/CSS/HTML 语言包与主题样式
+- [x] [2026-05-18] 已接入代码块一键复制：监听消息更新后为 `pre` 动态注入复制按钮，点击可复制对应 `code` 文本并给出“已复制”反馈
+- [x] [2026-05-18] 已接入上下文裁剪：`ChatView.vue` 发送请求前仅截取最近 `12` 条消息（`slice(-MAX_CONTEXT_MESSAGES)`）传给后端，页面历史展示不受影响
+- [x] [2026-05-18] 已接入新消息自动滚动：消息更新后在 `nextTick` 中调用 `bottomRef.scrollIntoView({ behavior: "smooth" })` 自动定位到底部
+- [x] [2026-05-18] 已完成 `ChatView.vue` 展示层重构：新增 `hero/input-panel/chat-panel` 页面结构，优化输入区、模式切换、主次按钮、消息卡片与空状态视觉，保留原有业务逻辑不变
+- [x] [2026-05-18] 已重置全局样式基线：`src/style.css` 清理模板残留并统一背景与基础字体；`src/main.ts` 恢复全局样式导入
+- [x] [2026-05-18] 已通过构建验收：`npm run type-check` 与 `npm run build` 均通过
+- [x] [2026-05-18] 已完成定位文案微调：输入框 placeholder 改为“粘贴代码，选择模式后点击发送...”，空状态标题改为“开始你的第一次代码解析”
 
 ## 3. 当前上下文与关键决策 (Context & Decisions)
 - **核心技术栈**：Vue 3、TypeScript、Vite、Pinia、Markdown 渲染、Fetch Stream、后端代理服务
 - **架构约定**：先做单页最小闭环，再拆组件；状态集中到 Pinia；AI 对话上下文统一维护为 `messages` 数组；流式输出优先使用 `fetch + ReadableStream`；前后端职责分离，AI 请求由后端代理转发；功能优先级固定为“主链 > 稳定性 > 亮点展示”；当前教学采用“严格导师模式：每步先讲目标与原因，再一步一验收，不给完整代码”
-- **遗留问题/Bug**：尚未实现中断生成（前端 Abort + 后端感知断开）；尚未接入 Markdown 渲染与结构化笔记模式联动；尚未实现长对话虚拟列表/上下文裁剪策略
+- **遗留问题/Bug**：尚未实现长对话虚拟列表；复制按钮当前为 DOM 注入方案（后续可抽组件化以提升可维护性）；当前上下文裁剪为固定窗口（后续可升级为“system+recent turns”动态策略）；尚未完成部署与演示入口；README 仍是 Vite 默认模板，待替换为项目文档；IDE 偶发 TS 误报时需优先以 CLI 检查结果为准并重启 TS Server
 
 ## 4. 下一步行动计划 (Next Steps)
 - [x] Phase A（主链）: 在 `ChatView.vue` 中新增 `messages` 状态并在发送前追加 `user` 消息
@@ -134,7 +146,8 @@ current_phase: 前端逐字渲染已接通（待加中断控制）
 - [x] Phase A（主链）: 接入真实模型调用（先非流式）
 - [x] Phase A（主链）: 前端接入 explain/note 模式切换并传递到后端
 - [x] Phase A（主链）: ChatView 接入 onChunk，改为 assistant 消息逐步渲染
-- [ ] Phase A（主链）: 加入中断生成控制（AbortController）
-- [ ] Phase A（主链）: 接入 Markdown 渲染与“解释/笔记”双模式输出
+- [x] Phase A（主链）: 加入中断生成控制（AbortController）
+- [x] Phase A（主链）: 接入 Markdown 渲染与“解释/笔记”双模式输出
 - [ ] Phase B（亮点）: 代码高亮 + 一键复制 + 长对话性能策略（虚拟列表/上下文裁剪）
 - [ ] Phase B（亮点）: 构建体积分析、线上部署与演示入口（链接/二维码）
+- [ ] Phase B（收尾）: 重写 README（项目介绍/架构流程/启动方式/环境变量/亮点与权衡）
